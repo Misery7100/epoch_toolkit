@@ -1,5 +1,5 @@
-import sdf_helper as sdfh
+from . import grid
 
 # ----------------------- #
 
-__all__ = ["sdfh"]
+__all__ = ["grid"]

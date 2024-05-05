@@ -5,6 +5,8 @@ import subprocess as sp
 from setuptools import find_packages, setup
 from setuptools.command.install import install
 
+# ----------------------- #
+
 
 class CustomInstall(install):
     def run(self):
@@ -37,5 +39,7 @@ class CustomInstall(install):
         # 3. rm the SDF directory
         shutil.rmtree(sdf_dir)
 
+
+# ----------------------- #
 
 setup(packages=find_packages(), cmdclass={"install": CustomInstall})

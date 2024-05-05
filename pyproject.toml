@@ -4,5 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epoch-toolkit"
-version = "0.1.0"
-dependencies = ["numpy",]
+dynamic = ["version"]
+dependencies = [
+    "numpy",
+    "pydantic"
+]
