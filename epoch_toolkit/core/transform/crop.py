@@ -33,15 +33,17 @@ class GridCrop(BaseModel):
         ndims = arr.ndim
         slices = [slice(None)] * ndims
 
-        match self.grid.axis:
-            case "x":
-                slices[0] = slice(min_idx, max_idx)
+        if self.grid.axis == "x":
+            slices[0] = slice(min_idx, max_idx)
 
-            case "y":
-                slices[1] = slice(min_idx, max_idx)
+        elif self.grid.axis == "y" and ndims > 1:
+            slices[1] = slice(min_idx, max_idx)
 
-            case "z":
-                slices[2] = slice(min_idx, max_idx)
+        elif self.grid.axis == "z" and ndims > 2:
+            slices[2] = slice(min_idx, max_idx)
+
+        else:
+            raise ValueError(f"Invalid axis: {self.grid.axis}")
 
         return arr[tuple(slices)]
 

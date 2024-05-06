@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools", "wheel", "numpy"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "epoch-toolkit"
 dynamic = ["version"]
@@ -9,3 +5,11 @@ dependencies = [
     "numpy",
     "pydantic >= 2.7.1"
 ]
+requires-python = ">=3.8"
+
+[build-system]
+requires = ["setuptools", "wheel", "numpy"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "epoch_toolkit.__version__"}
