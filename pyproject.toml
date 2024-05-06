@@ -7,5 +7,5 @@ name = "epoch-toolkit"
 dynamic = ["version"]
 dependencies = [
     "numpy",
-    "pydantic"
+    "pydantic >= 2.7.1"
 ]
