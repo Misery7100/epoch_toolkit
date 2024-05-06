@@ -1,37 +1,46 @@
-from typing import Union
+from typing import Literal, Union
 
 import numpy as np
 from pydantic import BaseModel, model_validator
 from sdf import BlockList, BlockPlainMesh
 
+from .const import Unit
+
 # ----------------------- #
 
 
 class BaseGrid(BaseModel):
-    max_: float
-    min_: float
+    max: float
+    min: float
     size: int
+    axis: Literal["x", "y", "z"]
 
     # ....................... #
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_all(cls, data: dict):
-        if data["max_"] <= data["min_"]:
+    @model_validator(mode="after")
+    def check_all(self):
+        if self.max <= self.min:
             raise ValueError("max_ should be greater than min_")
 
-        if data["size"] <= 1:
+        if self.size <= 1:
             raise ValueError("size should be greater than 1")
 
-    # ....................... #
-
-    def val_to_idx(self, val: float) -> int:
-        return int((val - self.min_) / (self.max_ - self.min_) * self.size)
+        return self
 
     # ....................... #
 
-    def idx_to_val(self, idx: int) -> float:
-        return idx * (self.max_ - self.min_) / self.size + self.min_
+    def val_to_idx(self, val: float, unit: Unit = None) -> int:
+        if unit is not None:
+            val *= unit.value
+
+        return int((val - self.min) / (self.max - self.min) * self.size)
+
+    # ....................... #
+
+    def idx_to_val(self, idx: int, unit: Unit = None) -> float:
+        multiplier = unit.value if unit is not None else 1
+
+        return (idx * (self.max - self.min) / self.size + self.min) * multiplier
 
 
 # ----------------------- #
@@ -39,12 +48,13 @@ class BaseGrid(BaseModel):
 
 class Grid1D(BaseModel):
     x: BaseGrid
+    dim: int = 1
 
     # ....................... #
 
     @classmethod
     def from_plain(cls, x_min: float, x_max: float, x_size: int):
-        return cls(x=BaseGrid(max_=x_max, min_=x_min, size=x_size))
+        return cls(x=BaseGrid(max=x_max, min=x_min, size=x_size, axis="x"))
 
 
 # ----------------------- #
@@ -53,6 +63,7 @@ class Grid1D(BaseModel):
 class Grid2D(BaseModel):
     x: BaseGrid
     y: BaseGrid
+    dim: int = 2
 
     # ....................... #
 
@@ -67,8 +78,8 @@ class Grid2D(BaseModel):
         y_size: int,
     ):
         return cls(
-            x=BaseGrid(max_=x_max, min_=x_min, size=x_size),
-            y=BaseGrid(max_=y_max, min_=y_min, size=y_size),
+            x=BaseGrid(max=x_max, min=x_min, size=x_size, axis="x"),
+            y=BaseGrid(max=y_max, min=y_min, size=y_size, axis="y"),
         )
 
 
@@ -79,6 +90,7 @@ class Grid3D(BaseModel):
     x: BaseGrid
     y: BaseGrid
     z: BaseGrid
+    dim: int = 3
 
     # ....................... #
 
@@ -96,21 +108,28 @@ class Grid3D(BaseModel):
         z_size: int,
     ):
         return cls(
-            x=BaseGrid(max_=x_max, min_=x_min, size=x_size),
-            y=BaseGrid(max_=y_max, min_=y_min, size=y_size),
-            z=BaseGrid(max_=z_max, min_=z_min, size=z_size),
+            x=BaseGrid(max=x_max, min=x_min, size=x_size, axis="x"),
+            y=BaseGrid(max=y_max, min=y_min, size=y_size, axis="y"),
+            z=BaseGrid(max=z_max, min=z_min, size=z_size, axis="z"),
         )
 
+
+# ----------------------- #
+
+AbstractGrid = Union[Grid1D, Grid2D, Grid3D]
 
 # ----------------------- #
 
 
 def grid_factory(
     file: BlockList = None, grid_mid: Union[np.ndarray, BlockPlainMesh] = None
-) -> Union[Grid1D, Grid2D, Grid3D]:
+) -> AbstractGrid:
+
+    # whole file
     if file is not None:
         grid_mid = file.Grid_Grid_mid.data
 
+    # grid object
     elif grid_mid is not None:
         if isinstance(grid_mid, BlockPlainMesh):
             grid_mid = grid_mid.data

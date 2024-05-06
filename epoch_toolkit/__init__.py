@@ -1,5 +1,5 @@
-from . import grid
+from . import core
 
 # ----------------------- #
 
-__all__ = ["grid"]
+__all__ = ["core"]

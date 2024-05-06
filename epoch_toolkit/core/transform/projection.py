@@ -1,13 +1,13 @@
 from typing import Literal
 
 import numpy as np
+from pydantic import BaseModel
 
 # ----------------------- #
 
 
-class PlaneProjection:
-    def __init__(self, axis: Literal["x", "y", "z"] = "x"):
-        self.axis = axis
+class PlaneProjection(BaseModel):
+    axis: Literal["x", "y", "z"]
 
     # ....................... #
 
