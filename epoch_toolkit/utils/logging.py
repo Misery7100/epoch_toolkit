@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import Any, List
+from typing import Any, List, Union
 
 from pydantic import BaseModel
 
@@ -60,7 +60,7 @@ class LogMixin:
         self,
         *args,
         logger_name: str = "default",
-        log_level: str | LogLevel = LogLevel.info,
+        log_level: Union[str, LogLevel] = LogLevel.info,
         **kwargs
     ) -> None:
 
