@@ -6,7 +6,7 @@ from pydantic import BaseModel
 # ----------------------- #
 
 
-class PlaneProjection(BaseModel):
+class PlaneProjection(BaseModel):  # TODO: rewrite
     axis: Literal["x", "y", "z"]
 
     # ....................... #

@@ -1,10 +1,30 @@
-from typing import Literal, Union
+from enum import Enum
+from typing import List, Union
 
-import numpy as np
 from pydantic import BaseModel, model_validator
-from sdf import BlockList, BlockPlainMesh
+from sdf import BlockList
 
 from .const import Unit
+
+# ----------------------- #
+
+
+class GridAxis(Enum):
+    x = 0
+    y = 1
+    z = 2
+
+    # ....................... #
+
+    @classmethod
+    def get(cls, v):
+        v = getattr(cls, v, None)
+
+        if v is None:
+            raise ValueError(f"Invalid component: {v}")
+
+        return v
+
 
 # ----------------------- #
 
@@ -13,7 +33,6 @@ class BaseGrid(BaseModel):
     max: float
     min: float
     size: int
-    axis: Literal["x", "y", "z"]
 
     # ....................... #
 
@@ -46,125 +65,38 @@ class BaseGrid(BaseModel):
 # ----------------------- #
 
 
-class Grid1D(BaseModel):
-    x: BaseGrid
-    dim: int = 1
+class Grid(BaseModel):
+    axes: List[BaseGrid]
+
+    # ....................... #
+
+    @property
+    def dim(self):
+        return len(self.axes)
+
+    # ....................... #
+
+    def component(self, val: Union[str, GridAxis]) -> BaseGrid:
+        if isinstance(val, str):
+            val = GridAxis.get(val)
+
+        return self.axes[val.value]
 
     # ....................... #
 
     @classmethod
-    def from_plain(cls, x_min: float, x_max: float, x_size: int):
-        return cls(x=BaseGrid(max=x_max, min=x_min, size=x_size, axis="x"))
-
-
-# ----------------------- #
-
-
-class Grid2D(BaseModel):
-    x: BaseGrid
-    y: BaseGrid
-    dim: int = 2
-
-    # ....................... #
-
-    @classmethod
-    def from_plain(
-        cls,
-        x_min: float,
-        x_max: float,
-        x_size: int,
-        y_min: float,
-        y_max: float,
-        y_size: int,
-    ):
-        return cls(
-            x=BaseGrid(max=x_max, min=x_min, size=x_size, axis="x"),
-            y=BaseGrid(max=y_max, min=y_min, size=y_size, axis="y"),
-        )
-
-
-# ----------------------- #
-
-
-class Grid3D(BaseModel):
-    x: BaseGrid
-    y: BaseGrid
-    z: BaseGrid
-    dim: int = 3
-
-    # ....................... #
-
-    @classmethod
-    def from_plain(
-        cls,
-        x_min: float,
-        x_max: float,
-        x_size: int,
-        y_min: float,
-        y_max: float,
-        y_size: int,
-        z_min: float,
-        z_max: float,
-        z_size: int,
-    ):
-        return cls(
-            x=BaseGrid(max=x_max, min=x_min, size=x_size, axis="x"),
-            y=BaseGrid(max=y_max, min=y_min, size=y_size, axis="y"),
-            z=BaseGrid(max=z_max, min=z_min, size=z_size, axis="z"),
-        )
-
-
-# ----------------------- #
-
-AbstractGrid = Union[Grid1D, Grid2D, Grid3D]
-
-# ----------------------- #
-
-
-def grid_factory(
-    file: BlockList = None, grid_mid: Union[np.ndarray, BlockPlainMesh] = None
-) -> AbstractGrid:
-
-    # whole file
-    if file is not None:
+    def from_sdf(cls, file: BlockList) -> "Grid":
         grid_mid = file.Grid_Grid_mid.data
 
-    # grid object
-    elif grid_mid is not None:
-        if isinstance(grid_mid, BlockPlainMesh):
-            grid_mid = grid_mid.data
+        config = []
 
-    if len(grid_mid) == 3:
-        xgrid, ygrid, zgrid = grid_mid
+        for g in grid_mid:
+            min_ = g[0]
+            max_ = g[-1]
+            size = g.size
 
-        return Grid3D.from_plain(
-            x_min=xgrid[0],
-            x_max=xgrid[-1],
-            x_size=xgrid.size,
-            y_min=ygrid[0],
-            y_max=ygrid[-1],
-            y_size=ygrid.size,
-            z_min=zgrid[0],
-            z_max=zgrid[-1],
-            z_size=zgrid.size,
-        )
+            config.append((min_, max_, size))
 
-    elif len(grid_mid) == 2:
-        xgrid, ygrid = grid_mid
+        axes = [BaseGrid(max=max_, min=min_, size=size) for min_, max_, size in config]
 
-        return Grid2D.from_plain(
-            x_min=xgrid[0],
-            x_max=xgrid[-1],
-            x_size=xgrid.size,
-            y_min=ygrid[0],
-            y_max=ygrid[-1],
-            y_size=ygrid.size,
-        )
-
-    elif len(grid_mid) == 1:
-        xgrid = grid_mid
-
-        return Grid1D.from_plain(x_min=xgrid[0], x_max=xgrid[-1], x_size=xgrid.size)
-
-    else:
-        raise ValueError("Invalid grid shape")
+        return cls(axes=axes)

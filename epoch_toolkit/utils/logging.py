@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 
 class LogLevel(Enum):
+    """Enumeration representing different log levels."""
+
     debug = logging.DEBUG
     info = logging.INFO
     warning = logging.WARNING
@@ -23,10 +25,24 @@ class LogLevel(Enum):
 
 
 class LogManager:
+    """A class that manages loggers for different modules."""
+
     loggers = {}
 
     @staticmethod
     def get_logger(name: str, log_level: LogLevel = LogLevel.info) -> logging.Logger:
+        """
+        Retrieves or creates a logger for the specified module name.
+
+        Args:
+            name (str): The name of the module.
+            log_level (LogLevel, optional): The log level for the logger. Defaults to LogLevel.info.
+
+        Returns:
+            logging.Logger: The logger object.
+
+        """
+
         if name in LogManager.loggers:
             return LogManager.loggers[name]
 
@@ -52,6 +68,8 @@ class LogManager:
 
 
 class LogMixin:
+    """A mixin class that provides logging functionality."""
+
     __logger: logging.Logger
 
     # ....................... #
@@ -72,6 +90,16 @@ class LogMixin:
     # ....................... #
 
     def __preprocess_args__(self, args: List[Any]) -> List[Any]:
+        """
+        Preprocess the arguments by applying specific transformations to each item in the list.
+
+        Args:
+            args (List[Any]): The list of arguments to be preprocessed.
+
+        Returns:
+            List[Any]: The preprocessed list of arguments.
+        """
+
         def process_item(item: Any) -> Any:
             if isinstance(item, Enum):
                 return item.value
@@ -96,29 +124,74 @@ class LogMixin:
     # ....................... #
 
     def info(self, msg: str, *args, **kwargs):
+        """
+        Log an informational message.
+
+        Args:
+            msg (str): The message to be logged.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
+
         args = self.__preprocess_args__(args)
         self.__logger.info(msg, *args, **kwargs)
 
     # ....................... #
 
     def error(self, msg: str, *args, **kwargs):
+        """
+        Log an error message.
+
+        Args:
+            msg (str): The error message to be logged.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
+
         args = self.__preprocess_args__(args)
         self.__logger.error(msg, *args, **kwargs)
 
     # ....................... #
 
     def warning(self, msg: str, *args, **kwargs):
+        """
+        Log a warning message.
+
+        Args:
+            msg (str): The error message to be logged.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
+
         args = self.__preprocess_args__(args)
         self.__logger.warning(msg, *args, **kwargs)
 
     # ....................... #
 
     def debug(self, msg: str, *args, **kwargs):
+        """
+        Log a debug message.
+
+        Args:
+            msg (str): The error message to be logged.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
+
         args = self.__preprocess_args__(args)
         self.__logger.debug(msg, *args, **kwargs)
 
     # ....................... #
 
     def critical(self, msg: str, *args, **kwargs):
+        """
+        Log a critical message.
+
+        Args:
+            msg (str): The error message to be logged.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
+
         args = self.__preprocess_args__(args)
         self.__logger.critical(msg, *args, **kwargs)

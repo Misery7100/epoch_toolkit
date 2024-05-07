@@ -1,8 +1,8 @@
-from . import core
+from . import core, handler
 
 # ----------------------- #
 
-__all__ = ["core"]
+__all__ = ["core", "handler"]
 
 # ----------------------- #
 

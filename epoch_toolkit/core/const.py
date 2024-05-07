@@ -4,6 +4,8 @@ from enum import Enum
 
 
 class Component(Enum):
+    """Enum class representing different coordinate system components."""
+
     x = "x"
     y = "y"
     z = "z"
@@ -28,6 +30,8 @@ class Component(Enum):
 
 
 class Unit(Enum):
+    """Enumeration class representing different units of measurement."""
+
     femto = 1e-15
     pico = 1e-12
     nano = 1e-9
@@ -46,3 +50,16 @@ class Unit(Enum):
     @classmethod
     def get(cls, v):
         return getattr(cls, v, None)
+
+
+# ----------------------- #
+
+
+class EpochDataMapping(Enum):
+    density = "Derived_Number_Density"
+    coordinates = "Grid_Particles"
+    momentum = "Particles_P"
+    temperature = "Derived_Temperature"
+    electric_field = "Electric_Field_E"
+    magnetic_field = "Magnetic_Field_B"
+    current = "Current_J"
