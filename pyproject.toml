@@ -3,7 +3,9 @@ name = "epoch-toolkit"
 dynamic = ["version"]
 dependencies = [
     "numpy",
-    "pydantic >= 2.7.1"
+    "pydantic >= 2.7.1",
+    "seaborn",
+    "matplotlib"
 ]
 requires-python = ">=3.8"
 

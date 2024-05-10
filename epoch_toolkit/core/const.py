@@ -3,7 +3,21 @@ from enum import Enum
 # ----------------------- #
 
 
-class Component(Enum):
+class ExtendedEnum(Enum):
+    @classmethod
+    def get(cls, v):
+        v = getattr(cls, v, None)
+
+        if v is None:
+            raise ValueError(f"Invalid value: {v}")
+
+        return v
+
+
+# ----------------------- #
+
+
+class Component(ExtendedEnum):
     """Enum class representing different coordinate system components."""
 
     x = "x"
@@ -13,17 +27,6 @@ class Component(Enum):
     r3d = "r3d"
     phi = "phi"
     theta = "theta"
-
-    # ....................... #
-
-    @classmethod
-    def get(cls, v):
-        v = getattr(cls, v, None)
-
-        if v is None:
-            raise ValueError(f"Invalid component: {v}")
-
-        return v
 
 
 # ----------------------- #
@@ -55,6 +58,38 @@ class Unit(Enum):
 # ----------------------- #
 
 
+class GridDataMapping(ExtendedEnum):
+    density = "Derived_Number_Density"
+    temperature = "Derived_Temperature"
+    electric_field = "Electric_Field_E"
+    magnetic_field = "Magnetic_Field_B"
+    current = "Current_J"
+    mass_density = "Derived_Mass_Density"
+
+
+# ----------------------- #
+
+
+class ParticleDataMapping(ExtendedEnum):
+    coordinates = "Grid_Particles"
+    momentum = "Particles_P"
+
+
+# ----------------------- #
+
+
+class ScalarDataMapping(ExtendedEnum):
+    total_field_energy = "Total_Field_Energy_in_Simulation__J_"
+    total_particle_energy = "Total_Particle_Energy_in_Simulation__J_"
+    particle_energy = "Total_Particle_Energy"
+    laser_energy_cumsum_inj = "Absorption_Total_Laser_Energy_Injected__J_"
+    laser_energy_inv_cumsum_abs = "Absorption_Fraction_of_Laser_Energy_Absorbed____"
+
+
+# ----------------------- #
+
+
+#! deprecated
 class EpochDataMapping(Enum):
     density = "Derived_Number_Density"
     coordinates = "Grid_Particles"
@@ -63,3 +98,7 @@ class EpochDataMapping(Enum):
     electric_field = "Electric_Field_E"
     magnetic_field = "Magnetic_Field_B"
     current = "Current_J"
+    mass_density = "Derived_Mass_Density"
+
+
+# ----------------------- #
