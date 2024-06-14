@@ -14,8 +14,10 @@ def build_sdf():
     build_path = os.path.join(utils_dir, "build")
     fixed_build_path = "./utils/fixed_sdf_build"
 
-    if not os.path.exists(sdf_dir):
-        os.makedirs(sdf_dir)
+    if os.path.exists(sdf_dir):
+        shutil.rmtree(sdf_dir)
+
+    os.makedirs(sdf_dir)
 
     sp.check_call(["git", "clone", c_repo, c_dir])
     sp.check_call(["git", "clone", utils_repo, utils_dir])

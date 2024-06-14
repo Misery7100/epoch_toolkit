@@ -5,9 +5,10 @@ description = "Toolkit for EPOCH PIC Code"
 authors = ["Lev Litvinov <misery7100@gmail.com>"]
 license = "LICENSE"
 readme = "README.md"
+build = "build.py"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.8,<3.12"
 numpy = "^1.23"
 seaborn = "^0.13.2"
 matplotlib = "^3.1.1"
@@ -16,10 +17,19 @@ pydantic = "^2.7.1"
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
 
-[tool.poetry.scripts]
-post-install = "post_install:post_install"
+[tool.poetry-dynamic-versioning.files."epoch_toolkit/__version__.py"]
+persistent-substitution = true
+initial-content = """
+  # These version placeholders will be replaced later during substitution.
+  __version__ = "0.0.0"
+  __version_tuple__ = (0, 0, 0)
+"""
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "numpy>=1.23", "setuptools", "wheel", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
 
