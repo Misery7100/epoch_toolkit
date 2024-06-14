@@ -17,6 +17,11 @@ pydantic = "^2.7.1"
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
 
+[tool.setuptools.dynamic]
+version = {attr = "epoch_toolkit.__version__"}
+
 [build-system]
 requires = ["setuptools", "wheel", "numpy", "poetry-core"]
 build-backend = "setuptools.build_meta"
+
+
