@@ -1,17 +1,22 @@
-[project]
+[tool.poetry]
 name = "epoch-toolkit"
-dynamic = ["version"]
-dependencies = [
-    "numpy",
-    "pydantic >= 2.7.1",
-    "seaborn",
-    "matplotlib"
-]
-requires-python = ">=3.8"
+version = "0.1.0"
+description = "Toolkit for EPOCH PIC Code"
+authors = ["Lev Litvinov <misery7100@gmail.com>"]
+license = "LICENSE"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "^1.23"
+seaborn = "^0.13.2"
+matplotlib = "^3.1.1"
+pydantic = "^2.7.1"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.2.2"
 
 [build-system]
-requires = ["setuptools", "wheel", "numpy"]
+requires = ["setuptools", "wheel", "numpy", "poetry-core"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.dynamic]
-version = {attr = "epoch_toolkit.__version__"}

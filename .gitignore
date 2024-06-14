@@ -162,3 +162,4 @@ cython_debug/
 test_data/
 .test_venv/
 plot_tests/
+depr/
