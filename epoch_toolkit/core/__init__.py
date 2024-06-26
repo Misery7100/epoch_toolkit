@@ -1,6 +1,6 @@
 from . import transform
-from .const import Component, EpochDataMapping, Unit
-from .grid import Grid
+from .const import Component, EpochData, GridData, ParticleData, ScalarData, Unit
+from .grid import Axis, Grid
 
 # ----------------------- #
 
@@ -9,5 +9,9 @@ __all__ = [
     "Grid",
     "Unit",
     "Component",
-    "EpochDataMapping",
+    "Axis",
+    "GridData",
+    "ParticleData",
+    "ScalarData",
+    "EpochData",
 ]

@@ -1,29 +1,17 @@
-from enum import Enum
-from typing import List, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, model_validator
 from sdf import BlockList
 
-from .const import Unit
+from .const import ExtendedEnum, Unit
 
 # ----------------------- #
 
 
-class GridAxis(Enum):
+class Axis(ExtendedEnum):
     x = 0
     y = 1
     z = 2
-
-    # ....................... #
-
-    @classmethod
-    def get(cls, v):
-        v = getattr(cls, v, None)
-
-        if v is None:
-            raise ValueError(f"Invalid component: {v}")
-
-        return v
 
 
 # ----------------------- #
@@ -48,7 +36,7 @@ class BaseGrid(BaseModel):
 
     # ....................... #
 
-    def val_to_idx(self, val: float, unit: Unit = None) -> int:
+    def val_to_idx(self, val: float, unit: Optional[Unit] = None) -> int:
         if unit is not None:
             val *= unit.value
 
@@ -56,7 +44,7 @@ class BaseGrid(BaseModel):
 
     # ....................... #
 
-    def idx_to_val(self, idx: int, unit: Unit = None) -> float:
+    def idx_to_val(self, idx: int, unit: Optional[Unit] = None) -> float:
         multiplier = unit.value if unit is not None else 1
 
         return (idx * (self.max - self.min) / self.size + self.min) * multiplier
@@ -76,9 +64,11 @@ class Grid(BaseModel):
 
     # ....................... #
 
-    def component(self, val: Union[str, GridAxis]) -> BaseGrid:
+    def component(self, val: Union[str, Axis]) -> BaseGrid:
         if isinstance(val, str):
-            val = GridAxis.get(val)
+            val = Axis.get(val)
+
+        assert val.value < self.dim, "Invalid component"
 
         return self.axes[val.value]
 
@@ -87,16 +77,6 @@ class Grid(BaseModel):
     @classmethod
     def from_sdf(cls, file: BlockList) -> "Grid":
         grid_mid = file.Grid_Grid_mid.data
-
-        config = []
-
-        for g in grid_mid:
-            min_ = g[0]
-            max_ = g[-1]
-            size = g.size
-
-            config.append((min_, max_, size))
-
-        axes = [BaseGrid(max=max_, min=min_, size=size) for min_, max_, size in config]
+        axes = [BaseGrid(max=g[-1], min=g[0], size=g.size) for g in grid_mid]
 
         return cls(axes=axes)

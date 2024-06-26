@@ -163,3 +163,4 @@ test_data/
 .test_venv/
 plot_tests/
 depr/
+.vscode/

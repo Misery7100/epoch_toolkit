@@ -1,10 +1,20 @@
-from typing import Dict, List, Union
+import os
+from itertools import product
+from typing import Any, Dict, Optional, Set, Union
 
 import numpy as np
 import sdf_helper as sdfh
 from sdf import BlockList
 
-from epoch_toolkit.core import Component, EpochDataMapping, Grid, Unit
+from epoch_toolkit.core import (
+    Component,
+    EpochData,
+    Grid,
+    GridData,
+    ParticleData,
+    ScalarData,
+    Unit,
+)
 from epoch_toolkit.utils.logging import LogMixin
 
 # ----------------------- #
@@ -13,7 +23,12 @@ from epoch_toolkit.utils.logging import LogMixin
 class FileHandler(LogMixin):
     data: BlockList = None
     grid: Grid = None
-    structure: Dict[EpochDataMapping, List[str]] = None
+    structure: Dict[EpochData, Union[Set[str], Dict[str, Set[str]], bool]] = dict()
+    species: Set[str] = set()
+    unit: Optional[Unit] = None
+
+    header: Dict[str, Any] = dict()
+    run_info: Dict[str, Any] = dict()
 
     # ....................... #
 
@@ -22,8 +37,9 @@ class FileHandler(LogMixin):
         unit: Union[str, Unit] = None,
         verbose: bool = False,
         log_level: str = "info",
+        logger_name: str = "File Handler",
     ):
-        super().__init__(logger_name="handler", log_level=log_level)
+        super().__init__(logger_name=logger_name, log_level=log_level)
 
         if isinstance(unit, str):
             unit = Unit.get(unit)
@@ -36,7 +52,7 @@ class FileHandler(LogMixin):
     @property
     def time_fs(self):
         if self.data is not None:
-            return self.data.Header["time"]
+            return self.header["time"] * Unit.femto.value
 
         else:
             raise ValueError("No data loaded")
@@ -64,24 +80,93 @@ class FileHandler(LogMixin):
         self.info(f"Reading file: {path}")
         self.data = sdfh.getdata(path, verbose=self.verbose)
 
+        file_list = sdfh.get_file_list(os.path.dirname(path))
+
+        for f in file_list:
+            print(f, sdfh.get_job_id(f))
+
         self.info("Capturing grid...")
         self.grid = Grid.from_sdf(self.data)
         self.info(
             "Grid: %sD %s", self.grid.dim, tuple([x.size for x in self.grid.axes])
         )
 
-    # ....................... #
+        self.info("Analyzing data structure...")
+        self._analyze()
 
-    def analyze(self):
-        all_keys = list(self.data.__dict__.keys())
-
-        # TODO: analyze species, fields etc. and log them
-        # ? record possible values into structure?
+        self.header = self.data.Header
+        self.run_info = self.data.Run_info
 
     # ....................... #
 
-    def density(self, specie: str = None) -> np.ndarray:
-        key = EpochDataMapping.density.value
+    def _analyze(self):
+        all_keys = set(self.data.__dict__.keys())
+        exclude = set()
+
+        for e, k in product(GridData.list(), all_keys.difference(exclude)):
+            if k.startswith(e):
+                tail = k.split(e)[-1]
+                e_name = GridData(e).name
+
+                if tail.startswith("_"):
+                    sp = tail[1:]
+                    self.species.add(sp)
+                    self.structure[e] = self.structure.get(e, set())
+                    self.structure[e].add(sp)
+
+                    self.info(f"Add `{e_name}` for specie `{sp}`")
+
+                elif tail:
+                    self.structure[e] = self.structure.get(e, set())
+                    self.structure[e].add(tail)
+
+                    self.info(f"Add `{e_name}` for component {tail}")
+
+                else:
+                    self.structure[e] = self.structure.get(e, set())
+                    self.structure[e].add(None)
+
+                    self.info(f"Add `{e_name}` for <NULL> (generailzed)")
+
+                exclude.add(k)
+
+        for e, k in product(ParticleData.list(), all_keys.difference(exclude)):
+            if k.startswith(e):
+                tail = k.split(e)[-1]
+                e_name = ParticleData(e).name
+
+                if tail.startswith("_"):
+                    sp = tail[1:]
+                    self.species.add(sp)
+                    self.structure[e] = self.structure.get(e, set())
+                    self.structure[e].add(sp)
+
+                    self.info(f"Add `{e_name}` for specie `{sp}`")
+
+                elif tail:
+                    comp, sp = tail.split("_")
+                    self.species.add(sp)
+                    self.structure[e] = self.structure.get(e, dict())
+                    self.structure[e][comp] = self.structure[e].get(comp, set())
+                    self.structure[e][comp].add(sp)
+
+                    self.info(f"Add `{e_name}` `{comp}` component for specie `{sp}`")
+
+                exclude.add(k)
+
+        for e, k in product(ScalarData.list(), all_keys.difference(exclude)):
+            if k == e:
+                e_name = ScalarData(e).name
+
+                self.structure[k] = True
+                self.info(f"Add `{e_name}`")
+
+    # ....................... #
+
+    def density(self, specie: Optional[str] = None) -> np.ndarray:
+        assert specie in self.species, f"Invalid specie: {specie}"
+
+        key = GridData.get("density").value
 
         if specie is not None:
             key += f"_{specie}"
@@ -90,8 +175,10 @@ class FileHandler(LogMixin):
 
     # ....................... #
 
-    def temperature(self, specie: str = None) -> np.ndarray:
-        key = EpochDataMapping.temperature.value
+    def temperature(self, specie: Optional[str] = None) -> np.ndarray:
+        assert specie in self.species, f"Invalid specie: {specie}"
+
+        key = GridData.get("temperature").value
 
         if specie is not None:
             key += f"_{specie}"
@@ -100,110 +187,60 @@ class FileHandler(LogMixin):
 
     # ....................... #
 
-    def electric_field(self, component: Union[str, Component] = Component.x):
+    def electric_field(self, component: Union[str, Component] = Component.get("x")):
         if isinstance(component, str):
-            component = Component.get(component)
+            component = Component.get(component).value
 
-        if component is Component.r:
-            raise NotImplementedError("Cylindrical CS not implemented")
+        key_ = GridData.get("magnetic_field").value
+        assert key_ in self.structure.keys(), f"Key not found: {key_}"
+        assert component in self.structure[key_], f"Component not found: {component}"
 
-        elif component is Component.r3d:
-            raise NotImplementedError("Spherical CS not implemented")
-
-        elif component is Component.phi:
-            raise NotImplementedError("Cylindrical CS not implemented")
-
-        elif component is Component.theta:
-            raise NotImplementedError("Spherical CS not implemented")
-
-        else:
-            if component is Component.y and self.grid.dim == 1:
-                raise ValueError("Cannot calculate `y` for 1D grid")
-
-            if component is Component.z and self.grid.dim < 3:
-                raise ValueError("Cannot calculate `z` for 1D or 2D grid")
-
-            key = f"{EpochDataMapping.electric_field.value}{component.value}"
-
-            return self._get(key)
+        return self._get(f"{key_}{component}")
 
     # ....................... #
 
-    def magnetic_field(self, component: Union[str, Component] = Component.x):
+    def magnetic_field(self, component: Union[str, Component] = Component.get("x")):
         if isinstance(component, str):
-            component = Component.get(component)
+            component = Component.get(component).value
 
-        if component is Component.r:
-            raise NotImplementedError("Cylindrical CS not implemented")
+        key_ = GridData.get("magnetic_field").value
+        assert key_ in self.structure.keys(), f"Key not found: {key_}"
+        assert component in self.structure[key_], f"Component not found: {component}"
 
-        elif component is Component.r3d:
-            raise NotImplementedError("Spherical CS not implemented")
-
-        elif component is Component.phi:
-            raise NotImplementedError("Cylindrical CS not implemented")
-
-        elif component is Component.theta:
-            raise NotImplementedError("Spherical CS not implemented")
-
-        else:
-            if component is Component.y and self.grid.dim == 1:
-                raise ValueError("Cannot calculate `y` for 1D grid")
-
-            if component is Component.z and self.grid.dim < 3:
-                raise ValueError("Cannot calculate `z` for 1D or 2D grid")
-
-            key = f"{EpochDataMapping.magnetic_field.value}{component.value}"
-
-            return self._get(key)
+        return self._get(f"{key_}{component}")
 
     # ....................... #
 
-    def current(self, component: Union[str, Component] = Component.x):
+    def current(self, component: Union[str, Component] = Component.get("x")):
         if isinstance(component, str):
-            component = Component.get(component)
+            component = Component.get(component).value
 
-        if component is Component.r:
-            raise NotImplementedError("Cylindrical CS not implemented")
+        key_ = GridData.get("magnetic_field").value
+        assert key_ in self.structure.keys(), f"Key not found: {key_}"
+        assert component in self.structure[key_], f"Component not found: {component}"
 
-        elif component is Component.r3d:
-            raise NotImplementedError("Spherical CS not implemented")
-
-        elif component is Component.phi:
-            raise NotImplementedError("Cylindrical CS not implemented")
-
-        elif component is Component.theta:
-            raise NotImplementedError("Spherical CS not implemented")
-
-        else:
-            if component is Component.y and self.grid.dim == 1:
-                raise ValueError("Cannot calculate `y` for 1D grid")
-
-            if component is Component.z and self.grid.dim < 3:
-                raise ValueError("Cannot calculate `z` for 1D or 2D grid")
-
-            key = f"{EpochDataMapping.current.value}{component.value}"
-
-            return self._get(key)
+        return self._get(f"{key_}{component}")
 
     # ....................... #
 
     def coordinates(self, specie: str):
-        key = f"{EpochDataMapping.coordinates.value}_{specie}"
+        key_ = ParticleData.get("coordinates").value
+        assert key_ in self.structure.keys(), f"Key not found: {key_}"
+        assert specie in self.structure[key_], f"Specie not found: {specie}"
 
-        return self._get(key)
+        return self._get(f"{key_}_{specie}")
 
     # ....................... #
 
     # TODO: add support for cylindrical and spherical CS
     # TODO: define abstract transformations for CS
-    def momentum(self, specie: str, component: Union[str, Component] = Component.x):
+    def momentum(
+        self, specie: str, component: Union[str, Component] = Component.get("x")
+    ):
         if isinstance(component, str):
             component = Component.get(component)
 
         if component is Component.r:
-            if self.grid.dim < 3:
-                raise ValueError("Cannot calculate `r` for 1D or 2D grid")
-
             py = self.momentum(specie, Component.y)
             pz = self.momentum(specie, Component.z)
 
@@ -213,9 +250,6 @@ class FileHandler(LogMixin):
             raise NotImplementedError("Spherical CS not implemented")
 
         elif component is Component.phi:
-            if self.grid.dim < 3:
-                raise ValueError("Cannot calculate `r` for 1D or 2D grid")
-
             py = self.momentum(specie, Component.y)
             pz = self.momentum(specie, Component.z)
 
@@ -225,12 +259,39 @@ class FileHandler(LogMixin):
             raise NotImplementedError("Spherical CS not implemented")
 
         else:
-            if component is Component.y and self.grid.dim == 1:
-                raise ValueError("Cannot calculate `y` for 1D grid")
+            component = component.value
+            key_ = ParticleData.get("momentum").value
 
-            if component is Component.z and self.grid.dim < 3:
-                raise ValueError("Cannot calculate `z` for 1D or 2D grid")
+            assert key_ in self.structure.keys(), f"Key not found: {key_}"
+            assert (
+                component in self.structure[key_].keys()
+            ), f"Component not found: {component}"
+            assert (
+                specie in self.structure[key_][component]
+            ), f"Specie not found: {specie}"
 
-            key = f"{EpochDataMapping.momentum.value}{component.value}_{specie}"
+            return self._get(f"{key_}{component}_{specie}")
 
-            return self._get(key)
+
+# ----------------------- #
+
+
+class FolderHandler(FileHandler):
+    def __init__(
+        self,
+        unit: Union[str, Unit] = None,
+        verbose: bool = False,
+        log_level: str = "info",
+        logger_name: str = "Folder Handler",
+    ):
+        super().__init__(
+            unit=unit,
+            verbose=verbose,
+            log_level=log_level,
+            logger_name=logger_name,
+        )
+
+    # ....................... #
+
+    def read(self, folder: str):
+        pass

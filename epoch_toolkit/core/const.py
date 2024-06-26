@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Union
 
 # ----------------------- #
 
@@ -12,6 +13,12 @@ class ExtendedEnum(Enum):
             raise ValueError(f"Invalid value: {v}")
 
         return v
+
+    # ....................... #
+
+    @classmethod
+    def list(cls):
+        return list(map(lambda x: x.value, cls))
 
 
 # ----------------------- #
@@ -58,7 +65,7 @@ class Unit(Enum):
 # ----------------------- #
 
 
-class GridDataMapping(ExtendedEnum):
+class GridData(ExtendedEnum):
     density = "Derived_Number_Density"
     temperature = "Derived_Temperature"
     electric_field = "Electric_Field_E"
@@ -70,7 +77,7 @@ class GridDataMapping(ExtendedEnum):
 # ----------------------- #
 
 
-class ParticleDataMapping(ExtendedEnum):
+class ParticleData(ExtendedEnum):
     coordinates = "Grid_Particles"
     momentum = "Particles_P"
 
@@ -78,7 +85,7 @@ class ParticleDataMapping(ExtendedEnum):
 # ----------------------- #
 
 
-class ScalarDataMapping(ExtendedEnum):
+class ScalarData(ExtendedEnum):
     total_field_energy = "Total_Field_Energy_in_Simulation__J_"
     total_particle_energy = "Total_Particle_Energy_in_Simulation__J_"
     particle_energy = "Total_Particle_Energy"
@@ -88,17 +95,18 @@ class ScalarDataMapping(ExtendedEnum):
 
 # ----------------------- #
 
+EpochData = Union[ParticleData, ScalarData, GridData]
 
-#! deprecated
-class EpochDataMapping(Enum):
-    density = "Derived_Number_Density"
-    coordinates = "Grid_Particles"
-    momentum = "Particles_P"
-    temperature = "Derived_Temperature"
-    electric_field = "Electric_Field_E"
-    magnetic_field = "Magnetic_Field_B"
-    current = "Current_J"
-    mass_density = "Derived_Mass_Density"
+# #! deprecated
+# class EpochDataMapping(Enum):
+#     density = "Derived_Number_Density"
+#     coordinates = "Grid_Particles"
+#     momentum = "Particles_P"
+#     temperature = "Derived_Temperature"
+#     electric_field = "Electric_Field_E"
+#     magnetic_field = "Magnetic_Field_B"
+#     current = "Current_J"
+#     mass_density = "Derived_Mass_Density"
 
 
 # ----------------------- #

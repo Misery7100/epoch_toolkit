@@ -16,6 +16,11 @@ def generate_slurm_file(
     mpi: str = "mpi/openmpi/4.1.3/gcc/11",
     epoch_path: str = "~/magneto/epoch/epoch3d/bin/epoch3d",
 ):
+
+    j_name = f"epoch3d-job-{experiment_name}"
+    o_path = os.path.join(experiment_path, f"{j_name}.out")
+    e_path = os.path.join(experiment_path, f"{j_name}.err")
+
     script_content = f"""#!/bin/bash
 
     #SBATCH --nodes={nodes}
@@ -23,9 +28,9 @@ def generate_slurm_file(
     #SBATCH --cpus-per-task={cpus_per_task}
     #SBATCH -p {partition}
     #SBATCH -t {time}
-    #SBATCH -J epoch3d-job-{experiment_name}
-    #SBATCH -o epoch3d-job-{experiment_name}.out
-    #SBATCH -e epoch3d-job-{experiment_name}.err
+    #SBATCH -J {j_name}
+    #SBATCH -o {o_path}
+    #SBATCH -e {e_path}
 
     EXPERIMENT_PATH="{experiment_path}"
     CLEANUP={"true" if cleanup else "false"}

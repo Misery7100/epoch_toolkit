@@ -1,5 +1,5 @@
-from .file import FileHandler
+from .file import FileHandler, FolderHandler
 
 # ----------------------- #
 
-__all__ = ["FileHandler"]
+__all__ = ["FileHandler", "FolderHandler"]

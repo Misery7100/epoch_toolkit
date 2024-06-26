@@ -17,6 +17,10 @@ pydantic = "^2.7.1"
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.2"
 
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
+
 [tool.poetry-dynamic-versioning]
 enable = true
 vcs = "git"
