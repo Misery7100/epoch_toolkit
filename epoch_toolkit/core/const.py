@@ -39,7 +39,7 @@ class Component(ExtendedEnum):
 # ----------------------- #
 
 
-class Unit(Enum):
+class Unit(ExtendedEnum):
     """Enumeration class representing different units of measurement."""
 
     femto = 1e-15
@@ -54,12 +54,6 @@ class Unit(Enum):
     giga = 1e9
     tera = 1e12
     peta = 1e15
-
-    # ....................... #
-
-    @classmethod
-    def get(cls, v):
-        return getattr(cls, v, None)
 
 
 # ----------------------- #
@@ -96,17 +90,3 @@ class ScalarData(ExtendedEnum):
 # ----------------------- #
 
 EpochData = Union[ParticleData, ScalarData, GridData]
-
-# #! deprecated
-# class EpochDataMapping(Enum):
-#     density = "Derived_Number_Density"
-#     coordinates = "Grid_Particles"
-#     momentum = "Particles_P"
-#     temperature = "Derived_Temperature"
-#     electric_field = "Electric_Field_E"
-#     magnetic_field = "Magnetic_Field_B"
-#     current = "Current_J"
-#     mass_density = "Derived_Mass_Density"
-
-
-# ----------------------- #

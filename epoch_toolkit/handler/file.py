@@ -1,10 +1,10 @@
-import os
+import os  # noqa: F401
 from itertools import product
-from typing import Any, Dict, Optional, Set, Union
+from typing import Any, Callable, Dict, Optional, Set, Union
 
 import numpy as np
+import sdf
 import sdf_helper as sdfh
-from sdf import BlockList
 
 from epoch_toolkit.core import (
     Component,
@@ -21,11 +21,12 @@ from epoch_toolkit.utils.logging import LogMixin
 
 
 class FileHandler(LogMixin):
-    data: BlockList = None
+    data: sdf.BlockList = None
     grid: Grid = None
     structure: Dict[EpochData, Union[Set[str], Dict[str, Set[str]], bool]] = dict()
     species: Set[str] = set()
-    unit: Optional[Unit] = None
+    _grid_unit: Unit = Unit.nano
+    _time_unit: Unit = Unit.femto
 
     header: Dict[str, Any] = dict()
     run_info: Dict[str, Any] = dict()
@@ -34,25 +35,22 @@ class FileHandler(LogMixin):
 
     def __init__(
         self,
-        unit: Union[str, Unit] = None,
+        grid_unit: Optional[Union[str, Unit]] = None,
+        time_unit: Optional[Union[str, Unit]] = None,
         verbose: bool = False,
         log_level: str = "info",
         logger_name: str = "File Handler",
     ):
         super().__init__(logger_name=logger_name, log_level=log_level)
-
-        if isinstance(unit, str):
-            unit = Unit.get(unit)
-
-        self.unit = unit
+        self.set_units(grid_unit=grid_unit, time_unit=time_unit)
         self.verbose = verbose
 
     # ....................... #
 
     @property
-    def time_fs(self):
+    def time(self):
         if self.data is not None:
-            return self.header["time"] * Unit.femto.value
+            return self.header["time"] * self._time_unit.value
 
         else:
             raise ValueError("No data loaded")
@@ -68,22 +66,28 @@ class FileHandler(LogMixin):
 
     # ....................... #
 
-    # def set_unit(self, unit: Union[str, Unit]):  # ? or as property ?#
-    #     if isinstance(unit, str):
-    #         unit = Unit.get(unit)
+    def set_units(
+        self,
+        grid_unit: Optional[Union[str, Unit]] = None,
+        time_unit: Optional[Union[str, Unit]] = None,
+    ):
+        if isinstance(grid_unit, str):
+            grid_unit = Unit.get(grid_unit)
 
-    #     self.unit = unit
+        if isinstance(time_unit, str):
+            time_unit = Unit.get(time_unit)
+
+        if grid_unit is not None:
+            self._grid_unit = grid_unit
+
+        if time_unit is not None:
+            self._time_unit = time_unit
 
     # ....................... #
 
     def read(self, path: str):
         self.info(f"Reading file: {path}")
-        self.data = sdfh.getdata(path, verbose=self.verbose)
-
-        file_list = sdfh.get_file_list(os.path.dirname(path))
-
-        for f in file_list:
-            print(f, sdfh.get_job_id(f))
+        self.data = sdfh.getdata(fname=path, verbose=self.verbose)
 
         self.info("Capturing grid...")
         self.grid = Grid.from_sdf(self.data)
@@ -165,8 +169,10 @@ class FileHandler(LogMixin):
 
     def density(self, specie: Optional[str] = None) -> np.ndarray:
         assert specie in self.species, f"Invalid specie: {specie}"
+        assert GridData.get("density").value in self.structure.keys()
 
         key = GridData.get("density").value
+        assert key in self.structure.keys(), f"Key not found: {key}"
 
         if specie is not None:
             key += f"_{specie}"
@@ -179,6 +185,7 @@ class FileHandler(LogMixin):
         assert specie in self.species, f"Invalid specie: {specie}"
 
         key = GridData.get("temperature").value
+        assert key in self.structure.keys(), f"Key not found: {key}"
 
         if specie is not None:
             key += f"_{specie}"
@@ -189,37 +196,58 @@ class FileHandler(LogMixin):
 
     def electric_field(self, component: Union[str, Component] = Component.get("x")):
         if isinstance(component, str):
-            component = Component.get(component).value
+            component = Component.get(component)
 
-        key_ = GridData.get("magnetic_field").value
-        assert key_ in self.structure.keys(), f"Key not found: {key_}"
-        assert component in self.structure[key_], f"Component not found: {component}"
+        if component not in [Component.x, Component.y, Component.z]:
+            return self._non_cartesian_grid(self.current, component, self.grid)
 
-        return self._get(f"{key_}{component}")
+        else:
+            component = component.value
+            key_ = GridData.get("magnetic_field").value
+            assert key_ in self.structure.keys(), f"Key not found: {key_}"
+            assert (
+                component in self.structure[key_]
+            ), f"Component not found: {component}"
+
+            return self._get(f"{key_}{component}")
 
     # ....................... #
 
     def magnetic_field(self, component: Union[str, Component] = Component.get("x")):
         if isinstance(component, str):
-            component = Component.get(component).value
+            component = Component.get(component)
 
-        key_ = GridData.get("magnetic_field").value
-        assert key_ in self.structure.keys(), f"Key not found: {key_}"
-        assert component in self.structure[key_], f"Component not found: {component}"
+        if component not in [Component.x, Component.y, Component.z]:
+            return self._non_cartesian_grid(self.current, component, self.grid)
 
-        return self._get(f"{key_}{component}")
+        else:
+            component = component.value
+            key_ = GridData.get("magnetic_field").value
+            assert key_ in self.structure.keys(), f"Key not found: {key_}"
+            assert (
+                component in self.structure[key_]
+            ), f"Component not found: {component}"
+
+            return self._get(f"{key_}{component}")
 
     # ....................... #
 
     def current(self, component: Union[str, Component] = Component.get("x")):
         if isinstance(component, str):
-            component = Component.get(component).value
+            component = Component.get(component)
 
-        key_ = GridData.get("magnetic_field").value
-        assert key_ in self.structure.keys(), f"Key not found: {key_}"
-        assert component in self.structure[key_], f"Component not found: {component}"
+        if component not in [Component.x, Component.y, Component.z]:
+            return self._non_cartesian_grid(self.current, component, self.grid)
 
-        return self._get(f"{key_}{component}")
+        else:
+            component = component.value
+            key_ = GridData.get("magnetic_field").value
+            assert key_ in self.structure.keys(), f"Key not found: {key_}"
+            assert (
+                component in self.structure[key_]
+            ), f"Component not found: {component}"
+
+            return self._get(f"{key_}{component}")
 
     # ....................... #
 
@@ -232,31 +260,124 @@ class FileHandler(LogMixin):
 
     # ....................... #
 
-    # TODO: add support for cylindrical and spherical CS
-    # TODO: define abstract transformations for CS
-    def momentum(
-        self, specie: str, component: Union[str, Component] = Component.get("x")
+    @staticmethod
+    def _non_cartesian_grid(
+        func: Callable, component: Union[str, Component], grid: Grid
     ):
         if isinstance(component, str):
             component = Component.get(component)
 
-        if component is Component.r:
-            py = self.momentum(specie, Component.y)
-            pz = self.momentum(specie, Component.z)
+        assert component in [Component.r, Component.r3d, Component.phi, Component.theta]
 
-            return np.sqrt(py**2 + pz**2)
+        if component is Component.r:
+            yv = func(component=Component.y)
+            zv = func(component=Component.z)
+
+            ygrid = grid.component("y")
+            zgrid = grid.component("z")
+
+            ygrid = np.linspace(ygrid.min, ygrid.max, ygrid.size, endpoint=True)
+            zgrid = np.linspace(zgrid.min, zgrid.max, zgrid.size, endpoint=True)
+
+            ygrid, zgrid = np.meshgrid(ygrid, zgrid, indexing="ij")
+
+            dot = yv * ygrid + zv * zgrid
+
+            return np.sqrt(yv**2 + zv**2) * np.sign(dot)
 
         elif component is Component.r3d:
-            raise NotImplementedError("Spherical CS not implemented")
+            xv = func(component=Component.x)
+            yv = func(component=Component.y)
+            zv = func(component=Component.z)
+
+            xgrid = grid.component("x")
+            ygrid = grid.component("y")
+            zgrid = grid.component("z")
+
+            xgrid = np.linspace(xgrid.min, xgrid.max, xgrid.size, endpoint=True)
+            ygrid = np.linspace(ygrid.min, ygrid.max, ygrid.size, endpoint=True)
+            zgrid = np.linspace(zgrid.min, zgrid.max, zgrid.size, endpoint=True)
+
+            xgrid, ygrid, zgrid = np.meshgrid(xgrid, ygrid, zgrid, indexing="ij")
+
+            dot = xv * xgrid + yv * ygrid + zv * zgrid
+
+            return np.sqrt(xv**2 + yv**2 + zv**2) * np.sign(dot)
 
         elif component is Component.phi:
-            py = self.momentum(specie, Component.y)
-            pz = self.momentum(specie, Component.z)
+            yv = func(component=Component.y)
+            zv = func(component=Component.z)
 
-            return np.arctan2(pz, py)
+            return np.arctan2(zv, yv)
 
-        elif component is Component.theta:
-            raise NotImplementedError("Spherical CS not implemented")
+        else:
+            xv = func(component=Component.x)
+            yv = func(component=Component.y)
+            zv = func(component=Component.z)
+
+            return np.arccos(zv / np.sqrt(xv**2 + yv**2 + zv**2))
+
+    # ....................... #
+
+    @staticmethod
+    def _non_cartesian_particle(
+        func: Callable,
+        coordinate_func: Callable,
+        component: Union[str, Component],
+        specie: Optional[str] = None,
+    ):
+
+        if isinstance(component, str):
+            component = Component.get(component)
+
+        assert component in [Component.r, Component.r3d, Component.phi, Component.theta]
+
+        if component is Component.r:
+            yv = func(component=Component.y, specie=specie)
+            zv = func(component=Component.z, specie=specie)
+
+            xyz = coordinate_func(specie)
+            dot = yv * xyz[1] + zv * xyz[2]
+
+            return np.sqrt(yv**2 + zv**2) * np.sign(dot)
+
+        elif component is Component.r3d:
+            xv = func(component=Component.x, specie=specie)
+            yv = func(component=Component.y, specie=specie)
+            zv = func(component=Component.z, specie=specie)
+
+            xyz = coordinate_func(specie)
+            dot = xv * xyz[0] + yv * xyz[1] + zv * xyz[2]
+
+            return np.sqrt(xv**2 + yv**2 + zv**2) * np.sign(dot)
+
+        elif component is Component.phi:
+            yv = func(component=Component.y, specie=specie)
+            zv = func(component=Component.z, specie=specie)
+
+            return np.arctan2(zv, yv)
+
+        else:
+            xv = func(component=Component.x, specie=specie)
+            yv = func(component=Component.y, specie=specie)
+            zv = func(component=Component.z, specie=specie)
+
+            return np.arccos(zv / np.sqrt(xv**2 + yv**2 + zv**2))
+
+    # ....................... #
+
+    def momentum(
+        self,
+        specie: str,
+        component: Union[str, Component] = Component.get("x"),
+    ):
+        if isinstance(component, str):
+            component = Component.get(component)
+
+        if component not in [Component.x, Component.y, Component.z]:
+            return self._non_cartesian_particle(
+                self.momentum, self.coordinates, component, specie=specie
+            )
 
         else:
             component = component.value
@@ -271,27 +392,3 @@ class FileHandler(LogMixin):
             ), f"Specie not found: {specie}"
 
             return self._get(f"{key_}{component}_{specie}")
-
-
-# ----------------------- #
-
-
-class FolderHandler(FileHandler):
-    def __init__(
-        self,
-        unit: Union[str, Unit] = None,
-        verbose: bool = False,
-        log_level: str = "info",
-        logger_name: str = "Folder Handler",
-    ):
-        super().__init__(
-            unit=unit,
-            verbose=verbose,
-            log_level=log_level,
-            logger_name=logger_name,
-        )
-
-    # ....................... #
-
-    def read(self, folder: str):
-        pass

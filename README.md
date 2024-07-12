@@ -7,4 +7,5 @@
 - [ ] Create binary input data generator;
 - [ ] Complete plotting engine;
 - [ ] Refactor code structure;
-- [ ] Research 3D plotting.
+- [ ] Research 3D plotting;
+- [ ] Data parser module.

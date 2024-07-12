@@ -1,4 +1,5 @@
-from .file import FileHandler, FolderHandler
+from .file import FileHandler
+from .folder import FolderHandler
 
 # ----------------------- #
 
